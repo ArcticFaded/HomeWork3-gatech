@@ -9,11 +9,56 @@ from sklearn.pipeline import Pipeline
 from models import create_model
 from preprocessing import preprocess_bank_data, preprocess_heart_data
 from sklearn.model_selection import GridSearchCV, train_test_split
-from utils import classification_reducer_report, graph_reducer_results
+from utils import classification_reducer_report, graph_reducer_results, plot_silhouette_score, plot_cluster_accuracy, plot_cluster_information, KMeans_ELBOW, BICandAIC
 rom sklearn.decomposition import FastICA, PCA, TruncatedSVD
 from sklearn.random_projection import SparseRandomProjection, GaussianRandomProjection
 # plt.style.use('ggplot')
 
+
+def clustering_creation(df_final, target_column, dataset):
+    
+    X = df_final.loc[:, df_final.columns != target_column]
+    Y = df_final.loc[:, df_final.columns == target_column]
+
+    clusters = np.linspace(2, len(X.columns), 3, dtype=np.int64, endpoint=True)
+    SSE = defaultdict(dict)
+    ll = defaultdict(lambda: defaultdict(dict))
+    acc = defaultdict(lambda: defaultdict(dict))
+    adjMI = defaultdict(lambda: defaultdict(dict))
+    SS = defaultdict(lambda: defaultdict(dict))
+    SSS = defaultdict(lambda: defaultdict(dict))
+    km = kmeans(random_state=5)
+    gmm = GMM(random_state=5)
+
+    for k in clusters:
+        km.set_params(n_clusters=k)
+        gmm.set_params(n_components=k)
+        km.fit(X)
+        gmm.fit(X)
+        SSE[k][dataset] = km.score(X)
+        ll[k][dataset]['AIC'] = gmm.aic(X)
+        ll[k][dataset]['BIC'] = gmm.bic(X) 
+        SS[k][dataset]['Kmeans'] = cluster_silhouette_score(X, km.predict(X))
+        SS[k][dataset]['GMM'] = cluster_silhouette_score(X, gmm.predict(X))
+        SSS[k][dataset]['Kmeans'] = cluster_sample_silhouette_score(X, km.predict(X))
+        SSS[k][dataset]['GMM'] = cluster_sample_silhouette_score(X, gmm.predict(X))
+        acc[k][dataset]['Kmeans'] = cluster_acc(Y,km.predict(X))
+        acc[k][dataset]['GMM'] = cluster_acc(Y,gmm.predict(X))
+        adjMI[k][dataset]['Kmeans'] = ami(Y.squeeze(1),km.predict(X))
+        adjMI[k][dataset]['GMM'] = ami(Y.squeeze(1),gmm.predict(X))
+        print(k)
+
+        cluster_labels_km = km.predict(X)
+        cluster_labels_gm = gmm.predict(X)
+
+    plot_silhouette_score(SS, SSS, k, dataset, cluster_labels_km, cluster_labels_gm)
+    plot_cluster_accuracy(dataset, acc, clusters)
+    plot_cluster_information(dataset, adjMI, clusters)
+    KMeans_ELBOW(dataset, SSE, clusters)
+    BICandAIC(dataset, ll, clusters)
+
+def reducer_creation(df_final, target_column, dataset):
+    
 
 
 def classifer_creation_reduction(df_final, target_column, reducer):
@@ -25,7 +70,7 @@ def classifer_creation_reduction(df_final, target_column, reducer):
     model = KerasClassifier(build_fn=create_model, verbose=0)
     batch_size = [8, 16]
     epochs = [1]#[15, 25, 35, 40]
-    components = np.linspace(2, 25, 3, dtype=np.int64, endpoint=True)
+    components = np.linspace(2, len(X.columns), 3, dtype=np.int64, endpoint=True)
     estimators = [('reduce_dim', reducer), ('clf', model)]
     param_grid = [dict(reduce_dim__n_components=[components[0]], clf__input_dim=[components[0]], clf__batch_size=batch_size, clf__epochs=epochs),
                 dict(reduce_dim__n_components=[components[1]], clf__input_dim=[components[1]], clf__batch_size=batch_size, clf__epochs=epochs),
@@ -70,10 +115,8 @@ for algorithm, reducer_ in reducers.items():
     classification_reducer_report(best_classifier, X_test, y_test)
     graph_reducer_results(best_classifier, components, batch_size, epochs, algorithm + '_bank')
 
+clustering_creation(heart_final, 'target', 'Heart')
+clustering_creation(bank_final, 'target', 'Bank')
 
 
 
-classification_accuracy(SVC, DecisionTree, BoostedTrees, KNN, ANN, X_train, y_train, X_test, y_test)
-print('==========================================new area==========================================')
-SVC, DecisionTree, BoostedTrees, KNN, ANN, X_train, y_train, X_test, y_test = classifer_creation(bank_final, 'y')
-classification_accuracy(SVC, DecisionTree, BoostedTrees, KNN, ANN, X_train, y_train, X_test, y_test)
