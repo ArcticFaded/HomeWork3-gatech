@@ -8,6 +8,8 @@
 ## cd HomeWork1-gatect
 ## install external dependency graphviz if you wish to see the tree pruning
 ## pip install -r requirements.txt
-## python jbeltran7-comparisons.py
+## python jbeltran7-comparisons.py "IN PROGRESS"
+
+# all experiments ran can be seen in HW3.ipynb in the meanwhile a run all is in development "CURRENT"
 
 # Running jbeltran7-comparisons.py will generate the graphs and on the console the accuracy metrics will be printed out.
